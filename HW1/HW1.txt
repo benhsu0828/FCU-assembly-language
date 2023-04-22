@@ -1,0 +1,29 @@
+		jsub READ
+END		td output
+		jeq END
+		wd	output
+		
+READ	td	input
+		jeq	READ
+		rd	input
+		comp	endmark
+		jeq END
+		comp exchange
+		jgt	WRITE
+		add UpToLow
+		jsub WRITE
+		jsub READ
+		
+WRITE	td	output
+		jeq	WRITE
+		wd output
+		rsub
+
+
+input	byte x'F1'
+output	byte x'F2'
+tmp	resb	1
+tmpin	resb	1
+endmark	byte x'0x24'
+exchange	byte x'0x60'
+UpToLow	byte x'0x20'

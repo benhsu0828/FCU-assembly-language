@@ -1,0 +1,19 @@
+{
+    "cmake.configureOnOpen": false,
+    "files.associations": {
+        "array": "c",
+        "string": "c",
+        "string_view": "c",
+        "stdlib.h": "c",
+        "string.h": "c",
+        "deque": "c",
+        "forward_list": "c",
+        "list": "c",
+        "vector": "c",
+        "bitset": "c",
+        "initializer_list": "c",
+        "regex": "c",
+        "utility": "c",
+        "valarray": "c"
+    }
+}
