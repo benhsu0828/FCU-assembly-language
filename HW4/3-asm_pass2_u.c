@@ -230,6 +230,7 @@ int process_line(LINE *line)
 							else if((c == 1) && (buf[0] == 'x' || buf[0] == 'X'))
 							{
 								line->addressing = line->addressing | ADDR_INDEX;
+								strcpy(line->operand2, buf);
 								ret = LINE_CORRECT;
 								state = 7;		/* skip following tokens in the line */
 							}
@@ -258,8 +259,8 @@ int process_line(LINE *line)
 #define MAX_LENGTH 50
 
 struct Queue {
-    char items[MAX_SIZE][MAX_LENGTH];
-	int data[MAX_SIZE];
+    char sName[MAX_SIZE][MAX_LENGTH]; //放symbol名字
+	int data[MAX_SIZE];				//放sybol的位子
     int front;
     int rear;
 };
@@ -289,7 +290,7 @@ void push(queue *q, char *value ,int inputData) {
         printf("Queue is full\n");
         return;
     }
-    strcpy(q->items[q->rear], value);
+    strcpy(q->sName[q->rear], value);
 	q->data[q->rear] = inputData;
     q->rear++;
 }
@@ -307,7 +308,7 @@ char *front(queue *q) {
         printf("Queue is empty\n");
         exit(1);
     }
-    return q->items[q->front];
+    return q->sName[q->front];
 }
 
 void print_queue(queue *q) {
@@ -317,7 +318,7 @@ void print_queue(queue *q) {
         return;
     }
     for (i = q->front; i < q->rear; i++) {
-        printf("%10s: %06x \n", q->items[i],q->data[i]);
+        printf("%10s: %06x \n", q->sName[i],q->data[i]);
     }
     printf("\n");
 }
@@ -376,6 +377,33 @@ void add_string(char *str1, char *str2) {
 	//printf("len1:%d len2:%d str1: %s str2: %s\n",len1,len2,str1,str2);
 }
 
+//搜尋symbol table
+int serchSymbolTable(queue *q,char str1[]){
+	if(str1[0]=='#'){//immediate addressing
+		//把#拿掉
+		for(int i = 0;i < strlen(str1);i++){
+			str1[i] = str1[i+1];
+		}
+	}
+	//開始比對
+		for (int i = q->front; i < q->rear; i++) {
+        	if(string_equal(q->sName[i],str1)){
+				return q->data;
+			}
+    	}
+		printf("Error! no found symbol\n");
+		return 0;
+}
+
+//合併陣列(16進位)
+int merge(int arr[]) {
+    int result = 0;
+    for (int i = 0; i < 4; i++) {
+        result = result * 16 + arr[i];
+    }
+    return result;
+}
+
 int main(int argc, char *argv[])
 {
 	int			i, c, line_count;
@@ -385,6 +413,8 @@ int main(int argc, char *argv[])
     int tmpop;
 	int ProgramLength = 0;
 	int symLength=0;
+	char programName[MAX_LENGTH];//程式名稱
+	int startLoc;
 
 	queue q;
 	init(&q);
@@ -402,20 +432,24 @@ int main(int argc, char *argv[])
 			for(line_count = 1 ; (c = process_line(&line)) != LINE_EOF; line_count++)
 			{
 				char Ctmp[MAX_LENGTH] = "\0";
-				char Ctmp2[MAX_LENGTH]= "\0";
-				if(c == LINE_ERROR)
+				//char Ctmp2[MAX_LENGTH]= "\0";
+				if(c == LINE_ERROR){
 					printf("%04d : Error\n", line_count);
-				else if(c == LINE_COMMENT)
-					printf("\t\tComment line\n", line_count);
+				}
+				else if(c == LINE_COMMENT){
+					//printf("\t\tComment line\n", line_count);
+				}
 				else{
-					if(string_equal(line.op,"START")){
+					if(string_equal(line.op,"START")){ //抓開始位子
 						symLength = hexToDec(line.operand1);
 						ProgramLength = symLength;
+						startLoc = symLength;
+						strcpy(programName,line.symbol);
 					}
-					printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
-					if(line.symbol[0]!='\0'&& !string_equal(line.op,"START")){
+					//printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
+					if(line.symbol[0]!='\0'&& !string_equal(line.op,"START")){ //push到symbol table
 						strcat(Ctmp,line.symbol);
-						push(&q,Ctmp,symLength);
+						push(&q,Ctmp,symLength);//把symbol放到symbol table
 					}
 					if(line.fmt==8){
 						symLength +=4;
@@ -425,37 +459,17 @@ int main(int argc, char *argv[])
 						symLength +=2;
 					}else if(line.fmt==1){
 						symLength +=1;
-					}}else if(string_equal(line.op,"START")||string_equal(line.op,"END")){
+					}else if(string_equal(line.op,"START")||string_equal(line.op,"END")){
 						/*start end*/
 					}
 					else if(string_equal(line.op,"WORD")){
 						symLength +=3;
-						// strcat(Ctmp,line.symbol);
-						// strcat(Ctmp , ":  ");
-						// itoa(symLength,Ctmp2,16);
-						// strcat(Ctmp ,Ctmp2);
-						// strcat(Ctmp ,"\0");
-						// push(&q,Ctmp);
 					}else if(string_equal(line.op,"RESW")){
 						tmpop = atoi(line.operand1);
-						//printf("tmpop:%d \n",tmpop);
 						symLength = symLength + tmpop*3;
-						// strcat(Ctmp,line.symbol);
-						// strcat(Ctmp , ":  ");
-						// itoa(symLength,Ctmp2,16);
-						// strcat(Ctmp ,Ctmp2 );
-						// strcat(Ctmp ,"\0");
-						// push(&q,Ctmp);
 					}else if(string_equal(line.op,"RESB")){
 						tmpop = atoi(line.operand1);
-						//printf("tmpop:%d \n",tmpop);
 						symLength = symLength + tmpop;
-						// strcat(Ctmp,line.symbol);
-						// strcat(Ctmp , ":  ");
-						// itoa(symLength,Ctmp2,16);
-						// strcat(Ctmp ,Ctmp2 );
-						// strcat(Ctmp ,"\0");
-						// push(&q,Ctmp);
 					}else if(string_equal(line.op,"BYTE")){
 						if(line.operand1[0]=='X'){
 							if((strlen(line.operand1)-3)%2==1){
@@ -463,34 +477,216 @@ int main(int argc, char *argv[])
 							}else{
 								tmpop = (strlen(line.operand1)-3)/2;
 							}
-							//printf("tmpop:%d \n",tmpop);
 							symLength = symLength + tmpop;
-							// strcat(Ctmp,line.symbol);
-							// strcat(Ctmp , ":  ");
-							// itoa(symLength,Ctmp2,16);
-							// strcat(Ctmp ,Ctmp2 );
-							// strcat(Ctmp ,"\0");
-							// push(&q,Ctmp);
 						}else{
 							tmpop = strlen(line.operand1)-3;
-							//printf("tmpop:%d \n",tmpop);
 							symLength = symLength + tmpop;
-							// strcat(Ctmp,line.symbol);
-							// strcat(Ctmp , ":  ");
-							// itoa(symLength,Ctmp2,16);
-							// strcat(Ctmp ,Ctmp2 );
-							// strcat(Ctmp ,"\0");
-							// push(&q,Ctmp);
 							}
 					}
 				}
 			}
 			ProgramLength = symLength - ProgramLength;
+
+			//pass 2
+			rewind(argv[1]);
+			int PC = 0;//PC指標
+			int Base = 0;//base指標
+			printf("H%-6s%06x%06x",programName,startLoc,ProgramLength);//表頭紀錄
+			char totalOp[200][MAX_LENGTH];//把產生出的opcode放在這裡，最後印出本文紀錄時比較好用，如果遇到FM0紀錄為-1
+			int totalOpPointer = 0;//紀錄輸出到第幾組opcode，一行最多1E個，遇到FM0要強制換行
+			Instruction *optmp;//用來存opcode的執行碼
+			int tmpSerch = 0 ;//用來計算disp
+
+			for(line_count = 1 ; (c = process_line(&line)) != LINE_EOF; line_count++)
+			{
+				char Ctmp[MAX_LENGTH] = "\0";
+				int opCode[4] = {NULL,NULL,NULL,NULL};//存放opcode
+				//char Ctmp2[MAX_LENGTH]= "\0";
+				if(c == LINE_ERROR)
+					printf("%04d : Error\n", line_count);
+				else if(c == LINE_COMMENT)
+					printf("\t\tComment line\n", line_count);
+				else{
+					//設定PC的開始位子
+					if(string_equal(line.op,"START")){ 
+						PC = hexToDec(line.operand1);
+						strcpy(programName,line.symbol);//存程式名稱
+					}
+					//設定B的開始位子
+					if(string_equal(line.op,"LDB")){//先預設他只會有immediate addressing
+						if(line.addressing == ADDR_IMMEDIATE ){//如果是immediate addressing
+							if(line.operand1[1]<57&&line.operand1[1]>48){//如果是#數字
+								line.operand1[0] = '0';
+								Base = atoi(line.operand1);
+								line.operand1[0] = '#';
+							}else{//如果是#接symbol
+								Base = serchSymbolTable(&q,line.operand1);
+							}
+						}
+					}
+					//PC往下指
+					if(line.fmt==4||line.fmt==3){
+						PC +=3;
+					}else if(line.fmt==2){
+						PC +=2;
+					}else if(line.fmt==1){
+						PC +=1;
+					}else if(string_equal(line.op,"START")||string_equal(line.op,"END")){
+						/*start end*/
+					}
+					else if(string_equal(line.op,"WORD")){
+						PC +=3;
+					}else if(string_equal(line.op,"RESW")){
+						tmpop = atoi(line.operand1);
+						PC = PC + tmpop*3;
+					}else if(string_equal(line.op,"RESB")){
+						tmpop = atoi(line.operand1);
+						PC = PC + tmpop;
+					}else if(string_equal(line.op,"BYTE")){
+						if(line.operand1[0]=='X'){
+							if((strlen(line.operand1)-3)%2==1){
+								tmpop = (strlen(line.operand1)-3)/2 + 1;
+							}else{
+								tmpop = (strlen(line.operand1)-3)/2;
+							}
+							PC = PC + tmpop;
+						}else{
+							tmpop = strlen(line.operand1)-3;
+							PC = PC + tmpop;
+							}
+					}
+					//先判斷FM1 2 4 8
+					optmp = is_opcode(line.op);
+					opCode[0] = optmp->code/16;
+					opCode[1] = optmp->code%16;
+					if (line.fmt == 0){
+						//判斷是RESW、RESB或是WORD、BYTE
+						if(string_equal(line.op,"RESW")||string_equal(line.op,"RESB")){
+							strcpy(totalOp[totalOpPointer],"-1");
+						}else if (string_equal(line.op,"WORD"))
+						{
+							opCode[3] = atoi(line.operand1);
+						}else if (string_equal(line.op,"BYTE"))
+						{
+							line.operand1[strlen(line.operand1)-1] = '\0';//讓最後一個'變成空字元
+							for(int i = 0;i < strlen(line.operand1);i++){//把C|X''拿掉，讓字串往前兩個位元且不要讓最後一位執行到
+								line.operand1[i] = line.operand1[i+2];
+							}
+							if(line.operand1[0]=='C'){
+								//轉ASCII
+								int tmp = 0;
+								for(int i = 0;i < strlen(line.operand1);i++){//把operand1的每個字元轉ASCII存到tmp中
+									tmp = tmp*16*16 +line.operand1[i];
+								}
+								itoa(tmp,totalOp[totalOpPointer],16);//將tmp轉成16進位放入totalOp
+							}else//X
+							{
+								strcpy(totalOp[totalOpPointer],line.operand1);
+							}
+						}
+						
+					}else if(line.fmt==1){
+						itoa(merge(opCode),totalOp[totalOpPointer],16);
+					}else if(line.fmt == 2){
+						//operand1
+						if(string_equal(line.operand1,'A')){
+							opCode[2] = 0; 
+						}else if(string_equal(line.operand1,'X')){
+							opCode[2] = 1; 
+						}else if(string_equal(line.operand1,'S')){
+							opCode[2] = 4; 
+						}else if(string_equal(line.operand1,'T')){
+							opCode[2] = 5; 
+						}else if(string_equal(line.operand1,'F')){
+							opCode[2] = 6; 
+						}
+						//operand2
+						if(string_equal(line.operand2,'\0')){
+							opCode[3] = 0; 
+						}else if(string_equal(line.operand2,'A')){
+							opCode[3] = 0; 
+						}else if(string_equal(line.operand2,'X')){
+							opCode[3] = 1; 
+						}else if(string_equal(line.operand2,'S')){
+							opCode[3] = 4; 
+						}else if(string_equal(line.operand2,'T')){
+							opCode[3] = 5; 
+						}else if(string_equal(line.operand2,'F')){
+							opCode[3] = 6; 
+						}
+						itoa(merge(opCode),totalOp[totalOpPointer],16);
+					}else if(line.fmt == 4){
+						int flag=0;//flag = 1為PC，2為Base，0為無解
+						//先算disp，決定是用PC還是Base
+						tmpSerch = serchSymbolTable(&q,line.operand1);
+						if((tmpSerch-PC)>2047||(tmpSerch-PC)<-2048){ //PC
+							tmpSerch -= PC;
+							flag = 1;
+						}else if ((tmpSerch-PC)>4095||(tmpSerch-PC)<0){ //Base
+							tmpSerch -= Base;
+							flag = 2;
+						}
+						opCode[3] = tmpSerch;
+						//判斷addrresing mod
+						if(line.addressing>=8)//index addr
+						{ 
+							opCode[1] += 4; //simple adrresing
+							if(flag == 1){//xbpe = 1010
+								opCode[2] = 10;
+							}else if (flag == 2){//1100
+								opCode[2] = 12;
+							}
+						}else if (line.addressing == 1)//simple addr
+						{
+							opCode[1] += 4; 
+							if(flag == 1){//xbpe = 0010
+								opCode[2] = 2;
+							}else if (flag == 2){//0100
+								opCode[2] = 4;
+							}
+						}else if (line.addressing == 2)//immediate addr
+						{
+							opCode[1] += 1;
+							if(flag == 1){//xbpe = 0010
+								opCode[2] = 2;
+							}else if (flag == 2){//0100
+								opCode[2] = 4;
+							}
+						}else if (line.addressing == 4)//indirect addr
+						{
+							opCode[1] += 2;
+							if(flag == 1){//xbpe = 0010
+								opCode[2] = 2;
+							}else if (flag == 2){//0100
+								opCode[2] = 4;
+							}
+						}
+						itoa(merge(opCode),totalOp[totalOpPointer],16);
+					}else if (line.fmt == 8)//FM4
+					{
+						tmpSerch = serchSymbolTable(&q,line.operand1);
+						if(line.addressing == 2){//immediate addr
+							opCode[1] += 1; 
+						}else if(line.addressing == 4){//indirect addr
+							opCode[1] += 2;
+						}else{//simple
+							opCode[1] += 4;
+						}
+						opCode[3] = tmpSerch;
+						itoa(merge(opCode),totalOp[totalOpPointer],16);
+					}
+					totalOpPointer++;
+				}
+			}
+			//處理本文紀錄
+
 			ASM_close();
+			/*
+			printf(".\n.\n.\n");
+			printf("Program length = %05x\n\n",ProgramLength);
+			print_queue(&q);
+			printf(".\n.\n.\n");
+			*/
 		}
-		printf(".\n.\n.\n");
-		printf("Program length = %05x\n\n",ProgramLength);
-		print_queue(&q);
-		printf(".\n.\n.\n");
 	}
 }
