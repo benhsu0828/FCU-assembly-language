@@ -259,7 +259,7 @@ int process_line(LINE *line)
 #define MAX_LENGTH 50
 
 struct Queue {
-    char sName[MAX_SIZE][MAX_LENGTH]; //放symbol名字
+    char sName[MAX_SIZE][LEN_SYMBOL]; //放symbol名字
 	int data[MAX_SIZE];				//放sybol的位子
     int front;
     int rear;
@@ -387,7 +387,9 @@ int serchSymbolTable(queue *q,char str1[]){
 	}
 	//開始比對
 		for (int i = q->front; i < q->rear; i++) {
+			//printf("size:%s is %d size:%s is %d\n",str1,strlen(str1),q->sName[i],strlen(q->sName[i]));
         	if(string_equal(q->sName[i],str1)){
+
 				return q->data;
 			}
     	}
@@ -425,6 +427,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
+		//FILE *fp = 
 		if(ASM_open(argv[1]) == NULL)
 			printf("File not found!!\n");
 		else
@@ -437,7 +440,7 @@ int main(int argc, char *argv[])
 					printf("%04d : Error\n", line_count);
 				}
 				else if(c == LINE_COMMENT){
-					//printf("\t\tComment line\n", line_count);
+					printf("\t\tComment line\n", line_count);
 				}
 				else{
 					if(string_equal(line.op,"START")){ //抓開始位子
@@ -446,9 +449,10 @@ int main(int argc, char *argv[])
 						startLoc = symLength;
 						strcpy(programName,line.symbol);
 					}
-					//printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
+					printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
 					if(line.symbol[0]!='\0'&& !string_equal(line.op,"START")){ //push到symbol table
 						strcat(Ctmp,line.symbol);
+						strcat(Ctmp,"\0");
 						push(&q,Ctmp,symLength);//把symbol放到symbol table
 					}
 					if(line.fmt==8){
@@ -486,16 +490,25 @@ int main(int argc, char *argv[])
 				}
 			}
 			ProgramLength = symLength - ProgramLength;
+			
+			printf(".\n.\n.\n");
+			printf("Program length = %05x\n\n",ProgramLength);
+			print_queue(&q);
+			printf(".\n.\n.\npass2\n");
+			
 
 			//pass 2
-			rewind(argv[1]);
+			rewind(ASM_fp);
 			int PC = 0;//PC指標
 			int Base = 0;//base指標
-			printf("H%-6s%06x%06x",programName,startLoc,ProgramLength);//表頭紀錄
-			char totalOp[200][MAX_LENGTH];//把產生出的opcode放在這裡，最後印出本文紀錄時比較好用，如果遇到FM0紀錄為-1
+			printf("H%-6s%06x%06x\n",programName,startLoc,ProgramLength);//表頭紀錄
+			char totalOp[200][LEN_SYMBOL];//把產生出的opcode放在這裡，最後印出本文紀錄時比較好用，如果遇到FM0紀錄為-1
 			int totalOpPointer = 0;//紀錄輸出到第幾組opcode，一行最多1E個，遇到FM0要強制換行
 			Instruction *optmp;//用來存opcode的執行碼
 			int tmpSerch = 0 ;//用來計算disp
+			int count[2][200] ;//count[0][0]=有幾行，count[0][n]=每行長度，count[1][該行起始位子]
+			count[0][0] = 1;
+			int countFlag = 0;
 
 			for(line_count = 1 ; (c = process_line(&line)) != LINE_EOF; line_count++)
 			{
@@ -504,8 +517,9 @@ int main(int argc, char *argv[])
 				//char Ctmp2[MAX_LENGTH]= "\0";
 				if(c == LINE_ERROR)
 					printf("%04d : Error\n", line_count);
-				else if(c == LINE_COMMENT)
-					printf("\t\tComment line\n", line_count);
+				else if(c == LINE_COMMENT){
+					//printf("\t\tComment line\n", line_count);
+				}	
 				else{
 					//設定PC的開始位子
 					if(string_equal(line.op,"START")){ 
@@ -524,8 +538,11 @@ int main(int argc, char *argv[])
 							}
 						}
 					}
+					symLength = PC;//紀錄當前行的位子
 					//PC往下指
-					if(line.fmt==4||line.fmt==3){
+					if(line.fmt==8){
+						PC +=4;
+					}else if(line.fmt==4){
 						PC +=3;
 					}else if(line.fmt==2){
 						PC +=2;
@@ -556,6 +573,11 @@ int main(int argc, char *argv[])
 							}
 					}
 					//先判斷FM1 2 4 8
+					if(line.op[0]=='+'){//如果是FM4要把'+'拿掉
+						for(int i = 0;i < strlen(line.op);i++){
+								line.op[i] = line.op[i+1];
+							}
+					}
 					optmp = is_opcode(line.op);
 					opCode[0] = optmp->code/16;
 					opCode[1] = optmp->code%16;
@@ -675,18 +697,45 @@ int main(int argc, char *argv[])
 						opCode[3] = tmpSerch;
 						itoa(merge(opCode),totalOp[totalOpPointer],16);
 					}
+					printf("test\n");
+					//先處理本文紀錄的一行要有多長並記錄該行開始位子
+					if(countFlag ==0){
+						count[1][count[0][0]] = symLength;
+						countFlag = 1;
+					}
+					if (string_equal(totalOp[totalOpPointer],"-1")||(count[0][count[0][0]]+strlen(totalOp[totalOpPointer])/2)>30)//遇到RESW、RESB或是該行放不下了，需要換行，增加總長度，並讓flag歸零
+					{
+						countFlag = 0;
+						count[0][0]++;
+					}else{
+						count[0][count[0][0]] += strlen(totalOp[totalOpPointer])/2;
+					}
 					totalOpPointer++;
 				}
 			}
-			//處理本文紀錄
 
+			//處理本文紀錄
+			int totalOpPointer2 = 0;//指本文處理中opcode的位子
+			for(int k=1;k<count[0][0]+1;k++){
+				printf("T%s%X",count[1][1],count[0][1]);
+				//印出該長度的內容
+				int i=0;
+				while(i<count[0][i]){
+					printf("%s",totalOp[totalOpPointer2]);
+					i +=strlen(totalOp[totalOpPointer2++])/2;
+				}
+				printf("\n");
+				/*不確定要不要
+				//如果全部opcode都印出來就跳出while迴圈
+				if(totalOpPointer2==totalOpPointer){
+					break;
+				}
+				*/
+			}
+			
+			//結束紀錄
+			printf("E%s",count[1][1]);//印出第一個可執行指令的地址
 			ASM_close();
-			/*
-			printf(".\n.\n.\n");
-			printf("Program length = %05x\n\n",ProgramLength);
-			print_queue(&q);
-			printf(".\n.\n.\n");
-			*/
 		}
 	}
 }

@@ -12,11 +12,11 @@
 #define	FMT2		0x02		/* Format 2 */
 #define	FMT3		0x04		/* Format 3 */
 #define	FMT4		0x08		/* Format 4 */
-#define	OP_BYTE	0x101
-#define	OP_WORD	0x102
-#define	OP_RESB	0x103
-#define	OP_RESW	0x104
-#define	OP_BASE	0x105
+#define	OP_BYTE		0x00	//原本老師給的值0x101
+#define	OP_WORD		0x00	//0x102
+#define	OP_RESB		0x00	//0x103
+#define	OP_RESW		0x00	//0x104
+#define	OP_BASE		0x105
 #define	OP_NOBASE	0x106
 #define	OP_START	0x107
 #define	OP_END		0x108
