@@ -339,8 +339,6 @@ int string_equal(const char *str1, const char *str2) {
 }
 
 //16進位轉10進位
-#include <stdio.h>
-#include <string.h>
 
 int hexToDec(char hex[]) {
     int len = strlen(hex);
@@ -378,30 +376,42 @@ void add_string(char *str1, char *str2) {
 }
 
 //搜尋symbol table
-int serchSymbolTable(queue *q,char str1[]){
+int serchSymbolTable(queue *q,char str1[],int *serchFlag){
+	*serchFlag = 0;
 	if(str1[0]=='#'){//immediate addressing
 		//把#拿掉
+		*serchFlag = 2;
 		for(int i = 0;i < strlen(str1);i++){
 			str1[i] = str1[i+1];
 		}
 	}
 	//開始比對
-		for (int i = q->front; i < q->rear; i++) {
-			//printf("size:%s is %d size:%s is %d\n",str1,strlen(str1),q->sName[i],strlen(q->sName[i]));
-        	if(string_equal(q->sName[i],str1)){
-
-				return q->data;
-			}
-    	}
-		printf("Error! no found symbol\n");
-		return 0;
+	for (int i = q->front; i < q->rear; i++) {
+		//printf("size:%s is %d size:%s is %d\n",str1,strlen(str1),q->sName[i],strlen(q->sName[i]));
+        if(string_equal(q->sName[i],str1)){
+			//printf("return1: %X\n",q->data[i]);
+			return q->data[i];
+		}
+    }
+	if(*serchFlag == 2){
+		int num = atoi(str1);
+		*serchFlag = 1;
+		//printf("return2: %d\n",num);
+		return num;
+	}
+	//printf("Error! no found symbol\n");
+	return 0;
 }
 
 //合併陣列(16進位)
 int merge(int arr[]) {
     int result = 0;
-    for (int i = 0; i < 4; i++) {
-        result = result * 16 + arr[i];
+    for (int i = 0; i < 8; i++) {
+		if(arr[i]==-1){
+			//不做
+		}else{
+			result = result * 16 + arr[i];
+		}  
     }
     return result;
 }
@@ -506,14 +516,24 @@ int main(int argc, char *argv[])
 			int totalOpPointer = 0;//紀錄輸出到第幾組opcode，一行最多1E個，遇到FM0要強制換行
 			Instruction *optmp;//用來存opcode的執行碼
 			int tmpSerch = 0 ;//用來計算disp
-			int count[2][200] ;//count[0][0]=有幾行，count[0][n]=每行長度，count[1][該行起始位子]
-			count[0][0] = 1;
+			int count[2][200] ;//count[0][0]=有幾行，count[0][n]=每行長度，count[1][n]=該行起始位子
 			int countFlag = 0;
+			int serchFlag = 0;
+			//reset array
+			for(int i=0;i<2;i++){
+				for(int j=0;j<200;j++){
+					count[i][j]=0;
+				}
+			}
+			count[0][0] = 1;
+			for(int i=0;i<200;i++){
+					strcpy(totalOp[i],"\0");
+			}
 
 			for(line_count = 1 ; (c = process_line(&line)) != LINE_EOF; line_count++)
 			{
 				char Ctmp[MAX_LENGTH] = "\0";
-				int opCode[4] = {NULL,NULL,NULL,NULL};//存放opcode
+				int opCode[8] = {-1,-1,-1,-1,-1,-1,-1,-1};//存放opcode
 				//char Ctmp2[MAX_LENGTH]= "\0";
 				if(c == LINE_ERROR)
 					printf("%04d : Error\n", line_count);
@@ -525,6 +545,7 @@ int main(int argc, char *argv[])
 					if(string_equal(line.op,"START")){ 
 						PC = hexToDec(line.operand1);
 						strcpy(programName,line.symbol);//存程式名稱
+						continue;//從下一行開始
 					}
 					//設定B的開始位子
 					if(string_equal(line.op,"LDB")){//先預設他只會有immediate addressing
@@ -534,9 +555,12 @@ int main(int argc, char *argv[])
 								Base = atoi(line.operand1);
 								line.operand1[0] = '#';
 							}else{//如果是#接symbol
-								Base = serchSymbolTable(&q,line.operand1);
+								Base = serchSymbolTable(&q,line.operand1,&serchFlag);
 							}
 						}
+					}
+					if(string_equal(line.op,"BASE")){ 
+						continue;//從下一行開始
 					}
 					symLength = PC;//紀錄當前行的位子
 					//PC往下指
@@ -572,6 +596,7 @@ int main(int argc, char *argv[])
 							PC = PC + tmpop;
 							}
 					}
+					printf("PC: %X ",PC);
 					//先判斷FM1 2 4 8
 					if(line.op[0]=='+'){//如果是FM4要把'+'拿掉
 						for(int i = 0;i < strlen(line.op);i++){
@@ -587,72 +612,95 @@ int main(int argc, char *argv[])
 							strcpy(totalOp[totalOpPointer],"-1");
 						}else if (string_equal(line.op,"WORD"))
 						{
-							opCode[3] = atoi(line.operand1);
+							opCode[2] = atoi(line.operand1);
+							//itoa(merge(opCode),totalOp[totalOpPointer],16);
+							sprintf(totalOp[totalOpPointer], "%X" ,merge(opCode));//存入大寫的16進位
 						}else if (string_equal(line.op,"BYTE"))
 						{
 							line.operand1[strlen(line.operand1)-1] = '\0';//讓最後一個'變成空字元
-							for(int i = 0;i < strlen(line.operand1);i++){//把C|X''拿掉，讓字串往前兩個位元且不要讓最後一位執行到
-								line.operand1[i] = line.operand1[i+2];
-							}
 							if(line.operand1[0]=='C'){
+								int changetmp = strlen(line.operand1);
+								for(int i = 0;i < changetmp-2;i++){//把C'拿掉，讓字串往前兩個位元
+									line.operand1[i] = line.operand1[i+2];
+								}
+								line.operand1[changetmp-2] = line.operand1[changetmp-1] = '\0';
+								//printf("op1.len: %X ",strlen(line.operand1));
 								//轉ASCII
 								int tmp = 0;
 								for(int i = 0;i < strlen(line.operand1);i++){//把operand1的每個字元轉ASCII存到tmp中
-									tmp = tmp*16*16 +line.operand1[i];
+									tmp = tmp*16*16 + line.operand1[i];
 								}
-								itoa(tmp,totalOp[totalOpPointer],16);//將tmp轉成16進位放入totalOp
+								//itoa(tmp,totalOp[totalOpPointer],16);//將tmp轉成16進位放入totalOp
+								sprintf(totalOp[totalOpPointer], "%X" ,tmp);//存入大寫的16進位
 							}else//X
 							{
+								int changetmp = strlen(line.operand1);
+								for(int i = 0;i < changetmp-2 ;i++){//把X'拿掉，讓字串往前兩個位元
+									line.operand1[i] = line.operand1[i+2];
+								}
+								line.operand1[changetmp-2] = line.operand1[changetmp-1] = '\0';
 								strcpy(totalOp[totalOpPointer],line.operand1);
 							}
+						}else if(string_equal(line.op,"END")){//忽略END這行
+							continue;
 						}
-						
 					}else if(line.fmt==1){
-						itoa(merge(opCode),totalOp[totalOpPointer],16);
+						//itoa(merge(opCode),totalOp[totalOpPointer],16);
+						sprintf(totalOp[totalOpPointer], "%X" ,merge(opCode));//存入大寫的16進位
 					}else if(line.fmt == 2){
 						//operand1
-						if(string_equal(line.operand1,'A')){
+						if(string_equal(line.operand1,"A")){
 							opCode[2] = 0; 
-						}else if(string_equal(line.operand1,'X')){
+						}else if(string_equal(line.operand1,"X")){
 							opCode[2] = 1; 
-						}else if(string_equal(line.operand1,'S')){
+						}else if(string_equal(line.operand1,"S")){
 							opCode[2] = 4; 
-						}else if(string_equal(line.operand1,'T')){
+						}else if(string_equal(line.operand1,"T")){
 							opCode[2] = 5; 
-						}else if(string_equal(line.operand1,'F')){
+						}else if(string_equal(line.operand1,"F")){
 							opCode[2] = 6; 
 						}
 						//operand2
-						if(string_equal(line.operand2,'\0')){
+						if(string_equal(line.operand2,"\0")){
 							opCode[3] = 0; 
-						}else if(string_equal(line.operand2,'A')){
+						}else if(string_equal(line.operand2,"A")){
 							opCode[3] = 0; 
-						}else if(string_equal(line.operand2,'X')){
+						}else if(string_equal(line.operand2,"X")){
 							opCode[3] = 1; 
-						}else if(string_equal(line.operand2,'S')){
+						}else if(string_equal(line.operand2,"S")){
 							opCode[3] = 4; 
-						}else if(string_equal(line.operand2,'T')){
-							opCode[3] = 5; 
-						}else if(string_equal(line.operand2,'F')){
-							opCode[3] = 6; 
+						}else if(string_equal(line.operand1,"T")){
+							opCode[2] = 5; 
+						}else if(string_equal(line.operand1,"F")){
+							opCode[2] = 6; 
 						}
-						itoa(merge(opCode),totalOp[totalOpPointer],16);
+						//itoa(merge(opCode),totalOp[totalOpPointer],16);
+						sprintf(totalOp[totalOpPointer], "%X" ,merge(opCode));//存入大寫的16進位
 					}else if(line.fmt == 4){
-						int flag=0;//flag = 1為PC，2為Base，0為無解
+						int flag=0;//flag = 1為PC，2為Base，0為無解，3為immediate addr又接數字
 						//先算disp，決定是用PC還是Base
-						tmpSerch = serchSymbolTable(&q,line.operand1);
-						if((tmpSerch-PC)>2047||(tmpSerch-PC)<-2048){ //PC
+						tmpSerch = serchSymbolTable(&q,line.operand1,&serchFlag);
+						opCode[3] = opCode[4] = 0;
+						if (string_equal(line.op,"RSUB"))//RSUB disp = 0
+						{
+							flag = 1;
+							tmpSerch = 0;
+						}else if(serchFlag==1){//immediate addr又接數字
+							flag = 3;
+						}
+						else if((tmpSerch-PC)<2047||(tmpSerch-PC)>-2048){ //PC
 							tmpSerch -= PC;
 							flag = 1;
-						}else if ((tmpSerch-PC)>4095||(tmpSerch-PC)<0){ //Base
+						}else if ((tmpSerch-PC)<4095||(tmpSerch-PC)>0){ //Base
 							tmpSerch -= Base;
 							flag = 2;
 						}
-						opCode[3] = tmpSerch;
+						//printf("type: %d tmpSerch: %X ",flag,tmpSerch);
+						opCode[5] = tmpSerch;
 						//判斷addrresing mod
 						if(line.addressing>=8)//index addr
 						{ 
-							opCode[1] += 4; //simple adrresing
+							opCode[1] += 3; //simple adrresing
 							if(flag == 1){//xbpe = 1010
 								opCode[2] = 10;
 							}else if (flag == 2){//1100
@@ -660,7 +708,7 @@ int main(int argc, char *argv[])
 							}
 						}else if (line.addressing == 1)//simple addr
 						{
-							opCode[1] += 4; 
+							opCode[1] += 3; 
 							if(flag == 1){//xbpe = 0010
 								opCode[2] = 2;
 							}else if (flag == 2){//0100
@@ -673,6 +721,8 @@ int main(int argc, char *argv[])
 								opCode[2] = 2;
 							}else if (flag == 2){//0100
 								opCode[2] = 4;
+							}else if(flag == 3){//0000
+								opCode[2] = 0;
 							}
 						}else if (line.addressing == 4)//indirect addr
 						{
@@ -683,58 +733,101 @@ int main(int argc, char *argv[])
 								opCode[2] = 4;
 							}
 						}
-						itoa(merge(opCode),totalOp[totalOpPointer],16);
+						//itoa(merge(opCode),totalOp[totalOpPointer],16);
+						sprintf(totalOp[totalOpPointer], "%X" ,merge(opCode));//存入大寫的16進位
+						char Ctmp[7];
+						if(strlen(totalOp[totalOpPointer])==5){//前面少個0，把0補上
+							strcpy(Ctmp,"\0");
+							strcat(Ctmp,"0");
+							strcat(Ctmp,totalOp[totalOpPointer]);
+							strcpy(totalOp[totalOpPointer],Ctmp);
+						}
 					}else if (line.fmt == 8)//FM4
 					{
-						tmpSerch = serchSymbolTable(&q,line.operand1);
+						opCode[3] = opCode[4] = opCode[5] = opCode[6] = 0;
+						tmpSerch = serchSymbolTable(&q,line.operand1,&serchFlag);
 						if(line.addressing == 2){//immediate addr
 							opCode[1] += 1; 
 						}else if(line.addressing == 4){//indirect addr
 							opCode[1] += 2;
 						}else{//simple
-							opCode[1] += 4;
+							opCode[1] += 3;
 						}
-						opCode[3] = tmpSerch;
-						itoa(merge(opCode),totalOp[totalOpPointer],16);
+						opCode[7] = tmpSerch;
+						//itoa(merge(opCode),totalOp[totalOpPointer],16);
+						sprintf(totalOp[totalOpPointer], "%X" ,merge(opCode));//存入大寫的16進位
+						char Ctmp[9];
+						if(strlen(totalOp[totalOpPointer])==7){//前面少個0，把0補上
+							strcpy(Ctmp,"\0");
+							strcat(Ctmp,"0");
+							strcat(Ctmp,totalOp[totalOpPointer]);
+							strcpy(totalOp[totalOpPointer],Ctmp);
+						}
 					}
-					printf("test\n");
+
+					printf("totalop: %s op: %s ",totalOp[totalOpPointer],line.op);
+					printf("count[0][0]: %X line lenght: %X strlen: %X\n",count[0][0],count[0][count[0][0]],strlen(totalOp[totalOpPointer]));
 					//先處理本文紀錄的一行要有多長並記錄該行開始位子
+					if (string_equal(totalOp[totalOpPointer],"-1")&&countFlag!=3)//遇到RESW、RESB需要換行，增加總長度，並讓flag歸零
+					{
+						countFlag = 2;//如果countFlag = 2代表遇到RESW或RESB，連續遇到不連續換行
+						count[0][0]++;
+					}else if((count[0][count[0][0]]+strlen(totalOp[totalOpPointer])/2)>30){//該行放不下了
+						countFlag = 0;
+						count[0][0]++;
+					}
+					//記錄換行時的開始位子
 					if(countFlag ==0){
 						count[1][count[0][0]] = symLength;
 						countFlag = 1;
+						printf("line: %X %d\n",count[1][count[0][0]],count[0][0]);
+					}else if(countFlag == 2){
+						count[1][count[0][0]] = symLength;
+						countFlag = 3;//flag設為3，再遇到RESW或RESB就不會再進到要換行的地方，除非位子滿了或是加入了別的opcode
+						printf("line: %X %d\n",count[1][count[0][0]],count[0][0]);
 					}
-					if (string_equal(totalOp[totalOpPointer],"-1")||(count[0][count[0][0]]+strlen(totalOp[totalOpPointer])/2)>30)//遇到RESW、RESB或是該行放不下了，需要換行，增加總長度，並讓flag歸零
-					{
-						countFlag = 0;
-						count[0][0]++;
-					}else{
+					if(!string_equal(totalOp[totalOpPointer],"-1")){
+						countFlag = 1;
 						count[0][count[0][0]] += strlen(totalOp[totalOpPointer])/2;
+						if(strlen(totalOp[totalOpPointer])/2==0){ //遇到WORD只有1位元時
+							count[0][count[0][0]] += 1;
+						}
 					}
+					
 					totalOpPointer++;
 				}
 			}
-
+			printf("count[0][0] = %d\n",count[0][0]);
 			//處理本文紀錄
 			int totalOpPointer2 = 0;//指本文處理中opcode的位子
-			for(int k=1;k<count[0][0]+1;k++){
-				printf("T%s%X",count[1][1],count[0][1]);
+			for(int k=1;k<=count[0][0]+1;k++){
+				printf("T^%06X^%X",count[1][k],count[0][k]);
 				//印出該長度的內容
 				int i=0;
-				while(i<count[0][i]){
-					printf("%s",totalOp[totalOpPointer2]);
-					i +=strlen(totalOp[totalOpPointer2++])/2;
+				while(i<count[0][k]){
+					if(!string_equal(totalOp[totalOpPointer2],"-1")){//不是RESB、RESW才印
+						printf("^%s",totalOp[totalOpPointer2]);
+						i +=strlen(totalOp[totalOpPointer2++])/2;
+					}else{//遇到-1忽略
+						i +=strlen(totalOp[totalOpPointer2++])/2;
+					}
+					//不確定要不要
+					//如果全部opcode都印出來就跳出while迴圈
+					if(totalOpPointer2==totalOpPointer){
+						break;
+					}
 				}
 				printf("\n");
-				/*不確定要不要
+				//不確定要不要
 				//如果全部opcode都印出來就跳出while迴圈
 				if(totalOpPointer2==totalOpPointer){
 					break;
 				}
-				*/
+				
 			}
 			
 			//結束紀錄
-			printf("E%s",count[1][1]);//印出第一個可執行指令的地址
+			printf("E%06X",count[1][1]);//印出第一個可執行指令的地址
 			ASM_close();
 		}
 	}
