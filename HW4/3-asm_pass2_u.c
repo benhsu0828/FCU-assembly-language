@@ -530,6 +530,15 @@ int main(int argc, char *argv[])
 			for(int i=0;i<200;i++){
 					strcpy(totalOp[i],"\0");
 			}
+			//modification record
+			int modification[2][200];//modification[0][n]=紀錄LOC，[1][n]=紀錄要改變幾個half byte
+			int modFlag = 0;//如果start的位子不是0就不需要產生modification record
+			int modCounter = 0;//紀錄有幾個修改的code
+			for(int i=0;i<2;i++){
+				for(int j=0;j<200;j++){
+					modification[i][j]=0;
+				}
+			}
 
 			for(line_count = 1 ; (c = process_line(&line)) != LINE_EOF; line_count++)
 			{
@@ -546,6 +555,11 @@ int main(int argc, char *argv[])
 					if(string_equal(line.op,"START")){ 
 						PC = hexToDec(line.operand1);
 						strcpy(programName,line.symbol);//存程式名稱
+						if (PC==0) //需要重新定址
+						{
+							modFlag = 2;//還不確定有沒有FM4，先給2如果有FM4就給1
+						}
+						
 						continue;//從下一行開始
 					}
 					//設定B的開始位子
@@ -599,6 +613,9 @@ int main(int argc, char *argv[])
 					}
 					//先判斷FM1 2 4 8
 					if(line.op[0]=='+'){//如果是FM4要把'+'拿掉
+						modFlag = 1;//產生modification record
+						modification[0][modCounter] = symLength;//紀錄當前位子
+						modification[1][modCounter++] = 5;
 						for(int i = 0;i < strlen(line.op);i++){
 								line.op[i] = line.op[i+1];
 							}
@@ -700,11 +717,23 @@ int main(int argc, char *argv[])
 						//判斷addrresing mod
 						if(line.addressing>=8)//index addr
 						{ 
-							opCode[1] += 3; //simple adrresing
+							line.addressing -= 8;
+							if (line.addressing == 1)//simple addr
+							{
+								opCode[1] += 3; 
+							}else if (line.addressing == 2)//immediate addr
+							{
+								opCode[1] += 1;
+							}else if (line.addressing == 4)//indirect addr
+							{
+								opCode[1] += 2;
+							}
 							if(flag == 1){//xbpe = 1010
 								opCode[2] = 10;
 							}else if (flag == 2){//1100
 								opCode[2] = 12;
+							}else if(flag == 3){//1000
+								opCode[2] = 8;
 							}
 						}else if (line.addressing == 1)//simple addr
 						{
@@ -753,6 +782,7 @@ int main(int argc, char *argv[])
 						}else{//simple
 							opCode[1] += 3;
 						}
+						opCode[2] = 1;//xbpe 0001
 						opCode[7] = tmpSerch;
 						//itoa(merge(opCode),totalOp[totalOpPointer],16);
 						sprintf(totalOp[totalOpPointer], "%X" ,merge(opCode));//存入大寫的16進位
@@ -828,6 +858,14 @@ int main(int argc, char *argv[])
 				//如果全部opcode都印出來就跳出while迴圈
 				if(totalOpPointer2==totalOpPointer){
 					break;
+				}
+				
+			}
+			//修正紀錄
+			if(modFlag == 1){
+				for (int i = 0; i < modCounter; i++)
+				{
+					printf("M%06X%0X\n",modification[0][i],modification[1][i]);
 				}
 				
 			}
