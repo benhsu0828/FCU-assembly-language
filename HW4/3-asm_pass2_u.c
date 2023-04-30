@@ -459,7 +459,12 @@ int main(int argc, char *argv[])
 						startLoc = symLength;
 						strcpy(programName,line.symbol);
 					}
-					//printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
+					// //印出當前行
+					// if(line.operand2[0]=='\0'){
+					// 	printf("%04x %-12s %-12s %-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.fmt, line.addressing);
+					// }else{
+					// 	printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
+					// }
 					if(line.symbol[0]!='\0'&& !string_equal(line.op,"START")){ //push到symbol table
 						strcat(Ctmp,line.symbol);
 						strcat(Ctmp,"\0");
@@ -543,7 +548,8 @@ int main(int argc, char *argv[])
 
 			for(line_count = 1 ; (c = process_line(&line)) != LINE_EOF; line_count++)
 			{
-				char Ctmp[MAX_LENGTH] = "\0";
+				char Ctmp[MAX_LENGTH];
+				memset(Ctmp, 0, sizeof(Ctmp));//重製Ctmp
 				int opCode[8] = {-1,-1,-1,-1,-1,-1,-1,-1};//存放opcode
 				//char Ctmp2[MAX_LENGTH]= "\0";
 				if(c == LINE_ERROR)
@@ -627,7 +633,7 @@ int main(int argc, char *argv[])
 					if (line.fmt == 0){
 						//判斷是RESW、RESB或是WORD、BYTE
 						if(string_equal(line.op,"RESW")||string_equal(line.op,"RESB")){
-							strcpy(totalOp[totalOpPointer],"-1");
+							sprintf(totalOp[totalOpPointer], "%d", -1);
 						}else if (string_equal(line.op,"WORD"))
 						{
 							opCode[2] = atoi(line.operand1);
@@ -765,12 +771,12 @@ int main(int argc, char *argv[])
 						}
 						//itoa(merge(opCode),totalOp[totalOpPointer],16);
 						sprintf(totalOp[totalOpPointer], "%X" ,merge(opCode));//存入大寫的16進位
-						char Ctmp[7];
+						char ctmp[7];
+						memset(ctmp, 0, sizeof(ctmp));//重製Ctmp
 						if(strlen(totalOp[totalOpPointer])==5){//前面少個0，把0補上
-							strcpy(Ctmp,"\0");
-							strcat(Ctmp,"0");
-							strcat(Ctmp,totalOp[totalOpPointer]);
-							strcpy(totalOp[totalOpPointer],Ctmp);
+							strcat(ctmp,"0");
+							strcat(ctmp,totalOp[totalOpPointer]);
+							strcpy(totalOp[totalOpPointer],ctmp);
 						}
 					}else if (line.fmt == 8)//FM4
 					{
@@ -787,23 +793,23 @@ int main(int argc, char *argv[])
 						opCode[7] = tmpSerch;
 						//itoa(merge(opCode),totalOp[totalOpPointer],16);
 						sprintf(totalOp[totalOpPointer], "%X" ,merge(opCode));//存入大寫的16進位
-						char Ctmp[9];
+						char ctmp[9];
+						memset(ctmp, 0, sizeof(ctmp));//重製ctmp
 						if(strlen(totalOp[totalOpPointer])==7){//前面少個0，把0補上
-							strcpy(Ctmp,"\0");
-							strcat(Ctmp,"0");
-							strcat(Ctmp,totalOp[totalOpPointer]);
-							strcpy(totalOp[totalOpPointer],Ctmp);
+							strcat(ctmp,"0");
+							strcat(ctmp,totalOp[totalOpPointer]);
+							strcpy(totalOp[totalOpPointer],ctmp);
 						}
 					}
 
 					//printf("PC: %X ",PC);
-					//printf("totalop: %s op: %s ",totalOp[totalOpPointer],line.op);
+					//printf("totalop: %s op: %s \n",totalOp[totalOpPointer],line.op);
 					//printf("count[0][0]: %X line lenght: %X strlen: %X\n",count[0][0],count[0][count[0][0]],strlen(totalOp[totalOpPointer]));
 					//先處理本文紀錄的一行要有多長並記錄該行開始位子
-					if (string_equal(totalOp[totalOpPointer],"-1")&&countFlag!=3)//遇到RESW、RESB需要換行，增加總長度，並讓flag歸零
+					if (string_equal(totalOp[totalOpPointer],"-1")&&countFlag!=2)//遇到RESW、RESB需要換行，增加總長度，並讓flag歸零
 					{
 						countFlag = 2;//如果countFlag = 2代表遇到RESW或RESB，連續遇到不連續換行
-						count[0][0]++;
+						
 					}else if((count[0][count[0][0]]+strlen(totalOp[totalOpPointer])/2)>30){//該行放不下了
 						countFlag = 0;
 						count[0][0]++;
@@ -813,13 +819,14 @@ int main(int argc, char *argv[])
 						count[1][count[0][0]] = symLength;
 						countFlag = 1;
 						//printf("line: %X %d\n",count[1][count[0][0]],count[0][0]);
-					}else if(countFlag == 2){
-						count[1][count[0][0]] = symLength;
-						countFlag = 3;//flag設為3，再遇到RESW或RESB就不會再進到要換行的地方，除非位子滿了或是加入了別的opcode
-						//printf("line: %X %d\n",count[1][count[0][0]],count[0][0]);
 					}
 					if(!string_equal(totalOp[totalOpPointer],"-1")){
-						countFlag = 1;
+						//當遇到RESW、RESB後遇到第一個可以加入totalop的opcode
+						if(countFlag==2){
+							countFlag = 1;
+							count[0][0]++;//先換行
+							count[1][count[0][0]] = symLength;//在記錄開始位子
+						}
 						count[0][count[0][0]] += strlen(totalOp[totalOpPointer])/2;
 						if(strlen(totalOp[totalOpPointer])/2==0){ //遇到WORD只有1十六進位時
 							count[0][count[0][0]] += 1;
@@ -836,8 +843,9 @@ int main(int argc, char *argv[])
 				}
 			}
 			//處理本文紀錄
+			//printf("count[0][0] %d\n",count[0][0]);
 			int totalOpPointer2 = 0;//指本文處理中opcode的位子
-			for(int k=1;k<=count[0][0]+1;k++){
+			for(int k=1;k<=count[0][0];k++){
 				printf("T%06X%X",count[1][k],count[0][k]);
 				//印出該長度的內容
 				int i=0;
