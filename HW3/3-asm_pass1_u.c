@@ -412,11 +412,18 @@ int main(int argc, char *argv[])
 						symLength = hexToDec(line.operand1);
 						ProgramLength = symLength;
 					}
-					printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
+					//印出當前行
+					if(line.operand2[0]=='\0'){
+						printf("%04x %-12s %-12s %-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.fmt, line.addressing);
+					}else{
+						printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
+					}
+					//如果是symbol就push到symbol table
 					if(line.symbol[0]!='\0'&& !string_equal(line.op,"START")){
 						strcat(Ctmp,line.symbol);
 						push(&q,Ctmp,symLength);
 					}
+					//行數增加
 					if(line.fmt==8){
 						symLength +=4;
 					}else if(line.fmt==4){
@@ -425,7 +432,7 @@ int main(int argc, char *argv[])
 						symLength +=2;
 					}else if(line.fmt==1){
 						symLength +=1;
-					}}else if(string_equal(line.op,"START")||string_equal(line.op,"END")){
+					}else if(string_equal(line.op,"START")||string_equal(line.op,"END")){
 						/*start end*/
 					}
 					else if(string_equal(line.op,"WORD")){
