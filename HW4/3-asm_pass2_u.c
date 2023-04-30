@@ -447,10 +447,10 @@ int main(int argc, char *argv[])
 				char Ctmp[MAX_LENGTH] = "\0";
 				//char Ctmp2[MAX_LENGTH]= "\0";
 				if(c == LINE_ERROR){
-					printf("%04d : Error\n", line_count);
+					//printf("%04d : Error\n", line_count);
 				}
 				else if(c == LINE_COMMENT){
-					printf("\t\tComment line\n", line_count);
+					//printf("\t\tComment line\n", line_count);
 				}
 				else{
 					if(string_equal(line.op,"START")){ //抓開始位子
@@ -459,7 +459,7 @@ int main(int argc, char *argv[])
 						startLoc = symLength;
 						strcpy(programName,line.symbol);
 					}
-					printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
+					//printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
 					if(line.symbol[0]!='\0'&& !string_equal(line.op,"START")){ //push到symbol table
 						strcat(Ctmp,line.symbol);
 						strcat(Ctmp,"\0");
@@ -501,11 +501,12 @@ int main(int argc, char *argv[])
 			}
 			ProgramLength = symLength - ProgramLength;
 			
+			/*
 			printf(".\n.\n.\n");
 			printf("Program length = %05x\n\n",ProgramLength);
 			print_queue(&q);
 			printf(".\n.\n.\npass2\n");
-			
+			*/
 
 			//pass 2
 			rewind(ASM_fp);
