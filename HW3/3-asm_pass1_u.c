@@ -496,7 +496,7 @@ int main(int argc, char *argv[])
 			ASM_close();
 		}
 		printf(".\n.\n.\n");
-		printf("Program length = %05x\n\n",ProgramLength);
+		printf("Program length = %-5X\n\n",ProgramLength);
 		print_queue(&q);
 		printf(".\n.\n.\n");
 	}
