@@ -377,7 +377,7 @@ void add_string(char *str1, char *str2) {
 
 //搜尋symbol table
 int serchSymbolTable(queue *q,char str1[],int *serchFlag){
-	*serchFlag = 0;
+	*serchFlag = 0;//1代表有找到且是#+數字，2代表沒找到但是是immediate addr
 	if(str1[0]=='#'){//immediate addressing
 		//把#拿掉
 		*serchFlag = 2;
@@ -506,12 +506,12 @@ int main(int argc, char *argv[])
 			}
 			ProgramLength = symLength - ProgramLength;
 			
-			/*
-			printf(".\n.\n.\n");
-			printf("Program length = %05x\n\n",ProgramLength);
-			print_queue(&q);
-			printf(".\n.\n.\npass2\n");
-			*/
+			
+			// printf(".\n.\n.\n");
+			// printf("Program length = %05x\n\n",ProgramLength);
+			// print_queue(&q);
+			// printf(".\n.\n.\npass2\n");
+			
 
 			//pass 2
 			rewind(ASM_fp);
@@ -526,6 +526,7 @@ int main(int argc, char *argv[])
 			int countFlag = 0;
 			int serchFlag = 0;
 			float judgeByte = 0;
+			int firstLOC = -1;//紀錄END接的operand，如果是-1代表沒有用END
 			//reset array
 			for(int i=0;i<2;i++){
 				for(int j=0;j<200;j++){
@@ -568,6 +569,10 @@ int main(int argc, char *argv[])
 						}
 						
 						continue;//從下一行開始
+					}
+					//如果讀到END紀錄第一個可執行指令地址
+					if(string_equal(line.op,"END")){
+						firstLOC = serchSymbolTable(&q,line.operand1,&serchFlag);
 					}
 					//設定B的開始位子
 					if(string_equal(line.op,"LDB")){//先預設他只會有immediate addressing
@@ -880,7 +885,12 @@ int main(int argc, char *argv[])
 			}
 			
 			//結束紀錄
-			printf("E%06X",count[1][1]);//印出第一個可執行指令的地址
+			if(firstLOC==-1){
+				printf("E%06X",count[1][1]);
+			}else{
+				printf("E%06X",firstLOC);//印出第一個可執行指令的地址
+			}
+			
 			ASM_close();
 		}
 	}
