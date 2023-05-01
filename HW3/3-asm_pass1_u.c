@@ -317,7 +317,7 @@ void print_queue(queue *q) {
         return;
     }
     for (i = q->front; i < q->rear; i++) {
-        printf("%10s: %06x \n", q->items[i],q->data[i]);
+        printf("%-10s: %06x \n", q->items[i],q->data[i]);
     }
     printf("\n");
 }
@@ -496,7 +496,7 @@ int main(int argc, char *argv[])
 			ASM_close();
 		}
 		printf(".\n.\n.\n");
-		printf("Program length = %-5X\n\n",ProgramLength);
+		printf("Program length = %05X\n\n",ProgramLength);
 		print_queue(&q);
 		printf(".\n.\n.\n");
 	}
