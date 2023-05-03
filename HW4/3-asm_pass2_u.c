@@ -416,6 +416,17 @@ int merge(int arr[]) {
     return result;
 }
 
+//判斷是不是SICXE的OP
+void judgesic(char str1[],int *issic){
+	char XETABLE[32][6] = {"ADDF","ADDR","CLEAR","COMPF","COMPR","DIVF","DIVR","FIX","FLOAT","HIO","LDB","LDF","LDS","LDT","LPS","MULF","MULR","NORM","RMO","SHIFTL","SIO","SSK","STB","STF","STI","STS","STT","SUBF","SUBR","SVC","TIO","TIXR"};
+	for(int i=0;i<32;i++){
+		if(string_equal(XETABLE[i],str1)){
+			*issic = 1;
+			break;
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	int			i, c, line_count;
@@ -427,6 +438,8 @@ int main(int argc, char *argv[])
 	int symLength=0;
 	char programName[MAX_LENGTH];//程式名稱
 	int startLoc;
+
+	int issic = 0;//0=standard sic 1=sicxe
 
 	queue q;
 	init(&q);
@@ -459,24 +472,38 @@ int main(int argc, char *argv[])
 						startLoc = symLength;
 						strcpy(programName,line.symbol);
 					}
-					// //印出當前行
-					// if(line.operand2[0]=='\0'){
-					// 	printf("%04x %-12s %-12s %-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.fmt, line.addressing);
-					// }else{
-					// 	printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
-					// }
+					//印出當前行
+					if(line.operand2[0]=='\0'){
+						printf("%04x %-12s %-12s %-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.fmt, line.addressing);
+					}else{
+						printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
+					}
 					if(line.symbol[0]!='\0'&& !string_equal(line.op,"START")){ //push到symbol table
 						strcat(Ctmp,line.symbol);
 						strcat(Ctmp,"\0");
 						push(&q,Ctmp,symLength);//把symbol放到symbol table
 					}
+
+					//判斷是不是sicxe
+					if(issic == 0){//還是sic的時候才進來
+						//判斷是不是@ #
+						if(line.operand1[0]=='@'||line.operand1[0]=='#'){
+							issic = 1;
+						}
+						judgesic(line.op,&issic);	
+					}
+
+					//計算symLength
 					if(line.fmt==8){
+						issic = 1;
 						symLength +=4;
 					}else if(line.fmt==4){
 						symLength +=3;
 					}else if(line.fmt==2){
+						issic = 1;
 						symLength +=2;
 					}else if(line.fmt==1){
+						issic = 1;
 						symLength +=1;
 					}else if(string_equal(line.op,"START")||string_equal(line.op,"END")){
 						/*start end*/
@@ -507,10 +534,10 @@ int main(int argc, char *argv[])
 			ProgramLength = symLength - ProgramLength;
 			
 			
-			// printf(".\n.\n.\n");
-			// printf("Program length = %05x\n\n",ProgramLength);
-			// print_queue(&q);
-			// printf(".\n.\n.\npass2\n");
+			printf(".\n.\n.\n");
+			printf("Program length = %05x\n\n",ProgramLength);
+			print_queue(&q);
+			printf(".\n.\n.\npass2\n");
 			
 
 			//pass 2
@@ -551,7 +578,7 @@ int main(int argc, char *argv[])
 			{
 				char Ctmp[MAX_LENGTH];
 				memset(Ctmp, 0, sizeof(Ctmp));//重製Ctmp
-				int opCode[8] = {-1,-1,-1,-1,-1,-1,-1,-1};//存放opcode
+				int opCode[8] = {-1,-1,-1,-1,-1,-1,-1,-1};//存放opcode -1的話不會計算該格位子
 				//char Ctmp2[MAX_LENGTH]= "\0";
 				if(c == LINE_ERROR)
 					printf("%04d : Error\n", line_count);
@@ -626,7 +653,7 @@ int main(int argc, char *argv[])
 					//先判斷FM1 2 4 8
 					if(line.op[0]=='+'){//如果是FM4要把'+'拿掉
 						modFlag = 1;//產生modification record
-						modification[0][modCounter] = symLength;//紀錄當前位子
+						modification[0][modCounter] = symLength+1;//紀錄當前位子+1
 						modification[1][modCounter++] = 5;
 						for(int i = 0;i < strlen(line.op);i++){
 								line.op[i] = line.op[i+1];
@@ -709,7 +736,7 @@ int main(int argc, char *argv[])
 						int flag=0;//flag = 1為PC，2為Base，0為無解，3為immediate addr又接數字
 						//先算disp，決定是用PC還是Base
 						tmpSerch = serchSymbolTable(&q,line.operand1,&serchFlag);
-						opCode[3] = opCode[4] = 0;
+						opCode[2] = opCode[3] = opCode[4] = 0;
 						if (string_equal(line.op,"RSUB"))//RSUB disp = 0
 						{
 							flag = 1;
@@ -717,63 +744,74 @@ int main(int argc, char *argv[])
 						}else if(serchFlag==1){//immediate addr又接數字
 							flag = 3;
 						}
-						else if((tmpSerch-PC)<2047||(tmpSerch-PC)>-2048){ //PC
+						else if(((tmpSerch-PC)<2047||(tmpSerch-PC)>-2048)&&issic==1){ //PC
 							tmpSerch -= PC;
 							flag = 1;
-						}else if ((tmpSerch-PC)<4095||(tmpSerch-PC)>0){ //Base
+						}else if (((tmpSerch-PC)<4095||(tmpSerch-PC)>0)&&issic==1){ //Base
 							tmpSerch -= Base;
 							flag = 2;
 						}
 						//printf("type: %d tmpSerch: %X ",flag,tmpSerch);
 						opCode[5] = tmpSerch;
 						//判斷addrresing mod
-						if(line.addressing>=8)//index addr
-						{ 
-							line.addressing -= 8;
-							if (line.addressing == 1)//simple addr
+						//先判斷是不是sic
+						if(issic==0){//sic
+							if(line.addressing == 4){//如果有用X站存器
+								opCode[2] = 1;
+							}
+							modFlag = 1;//產生modification record
+							modification[0][modCounter] = symLength+1;//紀錄當前位子+1
+							modification[1][modCounter++] = 4;//後面4碼要改
+						}else{//sicxe
+							if(line.addressing>=8)//index addr
+							{ 
+								line.addressing -= 8;
+								if (line.addressing == 1)//simple addr
+								{
+									opCode[1] += 3; 
+								}else if (line.addressing == 2)//immediate addr
+								{
+									opCode[1] += 1;
+								}else if (line.addressing == 4)//indirect addr
+								{
+									opCode[1] += 2;
+								}
+								if(flag == 1){//xbpe = 1010
+									opCode[2] = 10;
+								}else if (flag == 2){//1100
+									opCode[2] = 12;
+								}else if(flag == 3){//1000
+									opCode[2] = 8;
+								}
+							}else if (line.addressing == 1)//simple addr
 							{
 								opCode[1] += 3; 
+								if(flag == 1){//xbpe = 0010
+									opCode[2] = 2;
+								}else if (flag == 2){//0100
+									opCode[2] = 4;
+								}
 							}else if (line.addressing == 2)//immediate addr
 							{
 								opCode[1] += 1;
+								if(flag == 1){//xbpe = 0010
+									opCode[2] = 2;
+								}else if (flag == 2){//0100
+									opCode[2] = 4;
+								}else if(flag == 3){//0000
+									opCode[2] = 0;
+								}
 							}else if (line.addressing == 4)//indirect addr
 							{
 								opCode[1] += 2;
-							}
-							if(flag == 1){//xbpe = 1010
-								opCode[2] = 10;
-							}else if (flag == 2){//1100
-								opCode[2] = 12;
-							}else if(flag == 3){//1000
-								opCode[2] = 8;
-							}
-						}else if (line.addressing == 1)//simple addr
-						{
-							opCode[1] += 3; 
-							if(flag == 1){//xbpe = 0010
-								opCode[2] = 2;
-							}else if (flag == 2){//0100
-								opCode[2] = 4;
-							}
-						}else if (line.addressing == 2)//immediate addr
-						{
-							opCode[1] += 1;
-							if(flag == 1){//xbpe = 0010
-								opCode[2] = 2;
-							}else if (flag == 2){//0100
-								opCode[2] = 4;
-							}else if(flag == 3){//0000
-								opCode[2] = 0;
-							}
-						}else if (line.addressing == 4)//indirect addr
-						{
-							opCode[1] += 2;
-							if(flag == 1){//xbpe = 0010
-								opCode[2] = 2;
-							}else if (flag == 2){//0100
-								opCode[2] = 4;
+								if(flag == 1){//xbpe = 0010
+									opCode[2] = 2;
+								}else if (flag == 2){//0100
+									opCode[2] = 4;
+								}
 							}
 						}
+						
 						//itoa(merge(opCode),totalOp[totalOpPointer],16);
 						sprintf(totalOp[totalOpPointer], "%X" ,merge(opCode));//存入大寫的16進位
 						char ctmp[7];
@@ -856,7 +894,7 @@ int main(int argc, char *argv[])
 				int i=0;
 				while(i<count[0][k]){
 					if(!string_equal(totalOp[totalOpPointer2],"-1")){//不是RESB、RESW才印
-						printf("%s",totalOp[totalOpPointer2]);
+						printf("^%s",totalOp[totalOpPointer2]);
 						i +=strlen(totalOp[totalOpPointer2++])/2;
 					}else{//遇到-1忽略
 						totalOpPointer2++;
