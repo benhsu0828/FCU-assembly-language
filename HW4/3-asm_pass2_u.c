@@ -472,12 +472,12 @@ int main(int argc, char *argv[])
 						startLoc = symLength;
 						strcpy(programName,line.symbol);
 					}
-					//印出當前行
-					if(line.operand2[0]=='\0'){
-						printf("%04x %-12s %-12s %-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.fmt, line.addressing);
-					}else{
-						printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
-					}
+					// //印出當前行
+					// if(line.operand2[0]=='\0'){
+					// 	printf("%04x %-12s %-12s %-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.fmt, line.addressing);
+					// }else{
+					// 	printf("%04x %-12s %-12s %-40s,%-40s (FMT=%X, ADDR=%X)\n", symLength, line.symbol, line.op, line.operand1, line.operand2, line.fmt, line.addressing);
+					// }
 					if(line.symbol[0]!='\0'&& !string_equal(line.op,"START")){ //push到symbol table
 						strcat(Ctmp,line.symbol);
 						strcat(Ctmp,"\0");
@@ -534,10 +534,10 @@ int main(int argc, char *argv[])
 			ProgramLength = symLength - ProgramLength;
 			
 			
-			printf(".\n.\n.\n");
-			printf("Program length = %05x\n\n",ProgramLength);
-			print_queue(&q);
-			printf(".\n.\n.\npass2\n");
+			// printf(".\n.\n.\n");
+			// printf("Program length = %05x\n\n",ProgramLength);
+			// print_queue(&q);
+			// printf(".\n.\n.\npass2\n");
 			
 
 			//pass 2
@@ -894,7 +894,7 @@ int main(int argc, char *argv[])
 				int i=0;
 				while(i<count[0][k]){
 					if(!string_equal(totalOp[totalOpPointer2],"-1")){//不是RESB、RESW才印
-						printf("^%s",totalOp[totalOpPointer2]);
+						printf("%s",totalOp[totalOpPointer2]);
 						i +=strlen(totalOp[totalOpPointer2++])/2;
 					}else{//遇到-1忽略
 						totalOpPointer2++;
