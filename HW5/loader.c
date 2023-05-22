@@ -39,17 +39,24 @@ int hexToDec(char hex[]) {
 //col1  判斷symbol要當contral section還是symbol
 //loc  位址 
 //len  長度，如果col1 == H 才要印
-void printESTAB(char col1,char symbol[],char loc[],char len[]){ 
+void printESTAB(FILE *op,char col1,char symbol[],char loc[],char len[]){ 
     if(col1 == 'H'){
         printf("%-20s\t\t\t %-10s\t %-10s \n", symbol, loc, len);
+        fprintf(op ,"%-20s\t\t\t\t %-10s\t %-10s \n", symbol, loc, len );
     }else if(col1 == 'D'){
         printf("\t\t\t %-10s\t %-10s\t \n", symbol, loc);
+        fprintf(op ,"\t\t\t\t\t %-10s\t\t %-10s\t \n", symbol, loc);
     }
 }
 
 int main(int argc, char *argv[])
 {
     printf("contral section \t symbol name \t location \t lenght\n");
+    printf("----------------------------------------------------------------------------------\n");
+    FILE *op = fopen("output.txt", "w");
+    fputs("contral section \t symbol name \t location \t lenght\n", op);
+    fputs("----------------------------------------------------------------------------------\n", op);
+    //fprintf(op , "File name:%s \n",argv[0]);
     /*printf("argc :%d \n",argc);
     for(int i = 0; i<argc ; i++){
         printf("argv[%d]:%s \n",i,argv[i]);
@@ -98,7 +105,7 @@ int main(int argc, char *argv[])
                 contralSectionLen += hexToDec(lenght);//幫下一個檔案的contral section開始位址做處理
 
                 //印出
-                printESTAB('H',contralSection ,loc ,lenght);
+                printESTAB(op,'H',contralSection ,loc ,lenght);
             }
             else if(col1 == 'D'){
                 char Ctmp[75];
@@ -122,7 +129,7 @@ int main(int argc, char *argv[])
                     sprintf(loc, "%X" ,lolcTmp);//存回loc
 
                     //印出
-                    printESTAB('D',symbolName ,loc ,"0");
+                    printESTAB(op,'D',symbolName ,loc ,"0");
                     
                 } while (Ctmp[tmp]!='\0'&&Ctmp[tmp]!='\n');//讀到換行tmp<strlen(Ctmp)-1
             }
